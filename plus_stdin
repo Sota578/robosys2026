@@ -9,7 +9,10 @@ def tonum(s):   #def 関数の名前(引数)で関数を定義
 
 x = 0
 for line in sys.stdin:
+<<<<<<< HEAD
     line = line.rstrip()
-    x += tonum(line)
+=======
+    x += tonum(line.rstrip())
+>>>>>>> 2ea1efad4a39e3f29ada04f5c8efae00469c9a72
 
 print(x)
