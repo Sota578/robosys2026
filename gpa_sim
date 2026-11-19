@@ -1,0 +1,41 @@
+#!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 Sota Ito
+# SPDX-License-Identifier: BSD-3-Clause
+
+import sys
+import re
+
+GRADE_POINTS = {
+    "S": 4.0,
+    "A": 3.0,
+    "B": 2.0,
+    "C": 1.0,
+    "F": 0.0,
+}
+
+def main():
+    lines = sys.stdin.readlines()
+    if not lines:
+        print("Error: 標準入力が空です", file=sys.stderr)
+        sys.exit(1)
+
+    total_gp = 0.0
+    gpa_credits = 0.0
+
+    pattern = re.compile(r"^([^,\n]+),\s*(\d+(?:\.\d+)?),\s*([SABCF])\s*$")
+    for line in lines:
+        m = pattern.match(line.strip())
+        if m:
+            credit = float(m.group(2))
+            grade = m.group(3)
+            total_gp += GRADE_POINTS[grade] * credit
+            gpa_credits += credit
+
+    if gpa_credits == 0:
+        print("Error: 有効な成績データがありません", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"{(total_gp / gpa_credits):.2f}")
+
+if __name__ == "__main__":
+    main()
