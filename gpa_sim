@@ -4,6 +4,9 @@
 
 import sys
 import re
+import math
+import argparse
+import unicodedata
 
 GRADE_POINTS = {
     "S": 4.0,
@@ -12,30 +15,137 @@ GRADE_POINTS = {
     "C": 1.0,
     "F": 0.0,
 }
+PASS_GRADES = {"合", "P"}
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="成績表テキストまたはCSVからGPAと目標達成に必要なSの科目数を計算します。"
+    )
+    parser.add_argument(
+        "-c", "--credits",
+        action="store_true",
+        help="修得済み単位数の合計を出力する"
+    )
+    parser.add_argument(
+        "-t", "--target",
+        type=float,
+        help="目標GPAに到達するために必要なS(4.0)の最小科目数（履修中データがない場合は単位数）を出力する"
+    )
+    parser.add_argument(
+        "-b", "--base",
+        type=str,
+        default="B",
+        choices=["A", "B", "C", "F"],
+        help="目標シミュレーション時、S以外の履修中科目で取る前提の評価（デフォルト: B）"
+    )
+    return parser.parse_args()
+
+
+def parse_lines(lines):
+    """標準入力のテキストから (単位数, 評価, 履修中フラグ) のリストを抽出する"""
+    records = []
+
+    for raw_line in lines:
+        line = unicodedata.normalize("NFKC", raw_line).strip()
+        if not line:
+            continue
+
+        m_csv = re.match(r"^([^,]+),\s*(\d+(?:\.\d+)?),\s*([SABCF合P※]?)$", line)
+        if m_csv:
+            credit = float(m_csv.group(2))
+            grade = m_csv.group(3)
+            is_in_progress = (grade == "" or grade == "※")
+            records.append((credit, grade, is_in_progress))
+            continue
+
+        m_pdf = re.search(r"\s(\d+\.\d+)\s+(?:([SABCF合P])\s+)?(?:[○Ο]\s+)?-\s+20\d{2}\s+(?:前期|後期)", line)
+        if m_pdf:
+            credit = float(m_pdf.group(1))
+            grade = m_pdf.group(2) if m_pdf.group(2) else ""
+            is_in_progress = (grade == "")
+            records.append((credit, grade, is_in_progress))
+
+    return records
+
+
+def simulate_required_s_subjects(total_gp, gpa_credits, in_progress_list, target_gpa, base_grade):
+    """履修中の科目リストから、目標GPA達成に必要な最小のS科目数を計算する"""
+    base_gp = GRADE_POINTS[base_grade]
+    sorted_credits = sorted(in_progress_list, reverse=True)
+    total_ip_credits = sum(sorted_credits)
+
+    for s_count in range(len(sorted_credits) + 1):
+        s_credits = sum(sorted_credits[:s_count])
+        rest_credits = total_ip_credits - s_credits
+
+        sim_gp = total_gp + (4.0 * s_credits) + (base_gp * rest_credits)
+        sim_credits = gpa_credits + total_ip_credits
+
+        if sim_credits > 0 and (sim_gp / sim_credits) >= target_gpa:
+            return s_count
+
+    return -1
+
 
 def main():
+    args = parse_args()
+
+    if args.target is not None and not (0.0 <= args.target <= 4.0):
+        print("エラー: --target は 0.0 以上 4.0 以下で指定してください", file=sys.stderr)
+        sys.exit(1)
+
     lines = sys.stdin.readlines()
     if not lines:
-        print("Error: 標準入力が空です", file=sys.stderr)
+        print("エラー: 標準入力が空です", file=sys.stderr)
+        sys.exit(1)
+
+    records = parse_lines(lines)
+    if not records:
+        print("エラー: 有効な成績データが見つかりませんでした", file=sys.stderr)
         sys.exit(1)
 
     total_gp = 0.0
     gpa_credits = 0.0
+    earned_credits = 0.0
+    in_progress_credits = []
 
-    pattern = re.compile(r"^([^,\n]+),\s*(\d+(?:\.\d+)?),\s*([SABCF])\s*$")
-    for line in lines:
-        m = pattern.match(line.strip())
-        if m:
-            credit = float(m.group(2))
-            grade = m.group(3)
+    for credit, grade, is_in_progress in records:
+        if is_in_progress:
+            in_progress_credits.append(credit)
+        elif grade in GRADE_POINTS:
             total_gp += GRADE_POINTS[grade] * credit
             gpa_credits += credit
+            if grade != "F":
+                earned_credits += credit
+        elif grade in PASS_GRADES:
+            earned_credits += credit
 
-    if gpa_credits == 0:
-        print("Error: 有効な成績データがありません", file=sys.stderr)
-        sys.exit(1)
+    if args.credits:
+        print(f"{earned_credits:.1f}")
+    elif args.target is not None:
+        if in_progress_credits:
+            needed_subjects = simulate_required_s_subjects(
+                total_gp, gpa_credits, in_progress_credits, args.target, args.base
+            )
+            print(needed_subjects)
+        else:
+            if gpa_credits == 0:
+                print("エラー: 計算対象の単位がありません", file=sys.stderr)
+                sys.exit(1)
+            if args.target == 4.0:
+                print(0 if (total_gp / gpa_credits) == 4.0 else -1)
+            elif (total_gp / gpa_credits) >= args.target:
+                print(0)
+            else:
+                needed = (args.target * gpa_credits - total_gp) / (4.0 - args.target)
+                print(math.ceil(needed))
+    else:
+        if gpa_credits == 0:
+            print("エラー: GPA計算対象の単位がありません", file=sys.stderr)
+            sys.exit(1)
+        print(f"{(total_gp / gpa_credits):.2f}")
 
-    print(f"{(total_gp / gpa_credits):.2f}")
 
 if __name__ == "__main__":
     main()
