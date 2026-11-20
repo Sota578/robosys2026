@@ -1,26 +1,43 @@
-#!/bin/bash
+#!/bin/bash -xv
 # SPDX-FileCopyrightText: 2026 Sota Ito
 # SPDX-License-Identifier: BSD-3-Clause
 
-ng () {                               # 関数ngの定義（P18と同じ）
-         echo ${1}行目のテスト失敗
-          res=1                          # 失敗したことを記録
+ng () {
+	echo "${1}行目が違うよ"
+	res=1
 }
 
-res=0                                  # 0: 失敗なし（ngが呼ばれると>
+res=0
 
-out=$(seq 5 | ./plus)
-[ "$?" = 0 ]      || ng "$LINENO"
-[ "${out}" = 15 ] || ng "$LINENO"
-           # 通ったのが（人間に）分かる[>
-### STRANGE INPUT ###
-out=$(echo あ | ./plus)           #計算できない値を入力してみる
-[ "$?" = 1 ]      || ng "$LINENO" #終了ステータスが1なのを確認
-[ "${out}" = "" ] || ng "$LINENO" #上の行と入れ替えるとダメ（なぜ？）
+out=$(printf "数学,2.0,S\n英語,2.0,A\n初年次教育,1.0,合\n物理,2.0,※\n" | ./gpa_sim)
+[ "${out}" = "3.50" ] || ng "$LINENO"
 
-out=$(echo | ./plus)              #なにも入力しない
-[ "$?" = 1 ]      || ng "$LINENO" #これも異常終了する
+out=$(printf "数学,2.0,S\n英語,2.0,A\n初年次教育,1.0,合\n体育,1.0,F\n物理,2.0,※\n" | ./gpa_sim --credits)
+[ "${out}" = "5.0" ] || ng "$LINENO"
+
+out=$(printf "数学,2.0,S\n英語,2.0,A\n科目1,2.0,※\n科目2,2.0,※\n" | ./gpa_sim --target 3.50 --base A)
+[ "${out}" = "1" ] || ng "$LINENO"
+
+out=$(printf "数学,2.0,C\n科目1,2.0,※\n" | ./gpa_sim --target 3.50)
+[ "${out}" = "-1" ] || ng "$LINENO"
+
+out=$(printf "数学,2.0,A\n" | ./gpa_sim --target 3.50)
+[ "${out}" = "2" ] || ng "$LINENO"
+
+out=$(printf "日本語表現法   1.0   Ａ   ○   -   2025   前期   布施 \n英語理解   1.0   Ｓ   ○   -   2025   前期   原田 \n" | ./gpa_sim)
+[ "${out}" = "3.50" ] || ng "$LINENO"
+
+out=$(echo "" | ./gpa_sim 2>/dev/null)
+[ "$?" = 1 ] || ng "$LINENO"
 [ "${out}" = "" ] || ng "$LINENO"
 
-[ "${res}" = 0 ] && echo OK
+out=$(echo "あいうえお" | ./gpa_sim 2>/dev/null)
+[ "$?" = 1 ] || ng "$LINENO"
+[ "${out}" = "" ] || ng "$LINENO"
+
+out=$(printf "数学,2.0,A\n" | ./gpa_sim --target 4.5 2>/dev/null)
+[ "$?" = 1 ] || ng "$LINENO"
+[ "${out}" = "" ] || ng "$LINENO"
+
+[ "$res" = 0 ] && echo OK
 exit $res
