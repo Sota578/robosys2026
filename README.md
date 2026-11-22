@@ -1,5 +1,3 @@
-# robosys2026
-## このリポジトリはロボットシステム学の授業で利用するためのものです
 # gpa_sim
 
 ![test](https://github.com/Sota578/robosys2026/actions/workflows/test.yml/badge.svg)
@@ -10,11 +8,11 @@
 
 以下のコマンドを実行してリポジトリをクローンし、ディレクトリへ移動します。
 ```bash
-$ git clone [https://github.com/Sota578/robosys2026.git]
+$ git clone https://github.com/Sota578/robosys2026.git
 $ cd robosys2026
 ```
 ## 使い方
-## 1 CSV 形式のデータを入力する場合
+## 1. CSV 形式のデータを入力する場合
 科目名,単位数,評価 の形式で標準入力に渡します。評価には S, A, B, C, F のほか、GPA 計算から除外される 合, P, および履修中を示す※ を指定できます。
 
 通算 GPA の計算
@@ -36,7 +34,7 @@ $ printf "数学,2.0,S\n英語,2.0,A\n科目1,2.0,※\n科目2,2.0,※\n" | ./gp
 ```
 1
 
-## 2 成績一覧表 PDF から直接計算する場合
+## 2. 成績一覧表 PDF から直接計算する場合
 poppler-utils の pdftotext -layout とパイプでつなぐことで、成績一覧表 PDF から直接計算できます。
 ```
 $ pdftotext -layout 成績一覧表.pdf - | ./gpa_sim
@@ -56,4 +54,5 @@ OK
 - Ubuntu 24.04 LTS
 
 ## 著作権とライセンス
+- このソフトウェアパッケージは、3条項BSDライセンスの下、再頒布および使用が許可されます。
 - © 2026 Sota Ito
